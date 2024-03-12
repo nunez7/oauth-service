@@ -1,12 +1,14 @@
 package mx.com.vass.oauth.config;
 
+import java.nio.charset.StandardCharsets;
+import java.security.NoSuchAlgorithmException;
+import java.security.spec.InvalidKeySpecException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Logger;
 
 import io.jsonwebtoken.*;
-import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -24,28 +26,31 @@ public class JwtProvider {
 	@Value("${jwt.secret}")
 	private String secret;
 	
-	public String createToken(UserEntity user) {
+	SecretKey testKey = Jwts.SIG.HS256.key().build();
+	
+	public String createToken(UserEntity user) throws NoSuchAlgorithmException, InvalidKeySpecException {
 		Map<String, Object> claims = new HashMap<>();
 		claims.put("id", user.getId());
-		claims.put("twitter_account", "@raidentrance");
+		claims.put("xaccount", "nunez7");
 
 		Date now = new Date();
 		Date exp = new Date(now.getTime() + 3600 * 1000);
 
 		return Jwts.builder()
+				.subject(user.getUsername())
 				.header().add("company_name", "devs4j")
-				.and().claims().empty().add(claims)
+				.and().claims().add(claims)
 				.and().issuedAt(now)
 				.expiration(exp)
 				.signWith(getKey(this.secret)).compact();
 	}
-
-	private SecretKey getKey(String secret) {
-		byte[] secretBytes = Decoders.BASE64URL.decode(secret);
-		return Keys.hmacShaKeyFor(secretBytes);
+	
+	public SecretKey getKey(String secret) {
+		byte[] secretBytes = secret.getBytes(StandardCharsets.UTF_8);
+	    return Keys.hmacShaKeyFor(secretBytes);
 	}
 
-	public boolean validate(String token) {
+	public boolean validate(String token) throws JwtException, NoSuchAlgorithmException, InvalidKeySpecException {
 		try {
 			Jwts.parser().verifyWith(getKey(this.secret))
 					.build()
@@ -60,8 +65,8 @@ public class JwtProvider {
 			LOGGER.severe("token malformed");
 		} catch (IllegalArgumentException e) {
 			LOGGER.severe("illegal args");
-		}
-		return false;
+		} 
+        return false;
 	}
 	
 	public String getUsernameFromToken(String token) {
@@ -75,14 +80,6 @@ public class JwtProvider {
 		} catch (Exception e) {
 			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid token ");
 		}
-	}
-
-	public Claims getClaims(String token) {
-		return Jwts.parser()
-				.verifyWith(getKey(this.secret))
-				.build()
-				.parseSignedClaims(token)
-				.getPayload();
 	}
 	
 }

@@ -1,5 +1,7 @@
 package mx.com.vass.oauth.service;
 
+import java.security.NoSuchAlgorithmException;
+import java.security.spec.InvalidKeySpecException;
 import java.util.Optional;
 
 import org.modelmapper.ModelMapper;
@@ -9,6 +11,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import io.jsonwebtoken.JwtException;
 import mx.com.vass.oauth.config.JwtProvider;
 import mx.com.vass.oauth.dto.TokenDto;
 import mx.com.vass.oauth.dto.UserDto;
@@ -46,20 +49,30 @@ public class AuthServiceImpl implements AuthService{
 		UserEntity userEntity = userRepository.findByUsername(user.getUsername())
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
 		if (encoder.matches(user.getPassword(), userEntity.getPassword())) {
-			return new TokenDto(jwtProvider.createToken(userEntity));
+			try {
+				return new TokenDto(jwtProvider.createToken(userEntity));
+			} catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		} else {
 			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
 		}
+		return null;
 	}
 
 	@Override
 	public TokenDto validate(String token) {
-		if(!jwtProvider.validate(token)) {
-			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+		try {
+			jwtProvider.validate(token);
+			String username = jwtProvider.getUsernameFromToken(token);
+			userRepository.findByUsername(username).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+			return new TokenDto(token);
+		} catch (JwtException | NoSuchAlgorithmException | InvalidKeySpecException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			return null;
 		}
-		String username = jwtProvider.getUsernameFromToken(token);
-		userRepository.findByUsername(username).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
-		return new TokenDto(token);
 	}
 
 }

@@ -54,7 +54,9 @@ public class AuthServiceImpl implements AuthService{
 
 	@Override
 	public TokenDto validate(String token) {
-		jwtProvider.validate(token);
+		if(!jwtProvider.validate(token)) {
+			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+		}
 		String username = jwtProvider.getUsernameFromToken(token);
 		userRepository.findByUsername(username).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
 		return new TokenDto(token);
